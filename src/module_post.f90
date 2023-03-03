@@ -84,6 +84,8 @@ module mpi_Post
 
     public :: mpi_Post_FileIn_Continue_Post_Reassembly_IO
     public :: mpi_Post_FileOut_Continue_Post_Reassembly_IO
+
+    public :: mpi_Post_WallShearStress
     !> @}
 
     character(len=17) :: xyzrank            !> Rank information in filename
@@ -1452,5 +1454,80 @@ module mpi_Post
         if(myrank.eq.0) print '(a)', 'Write continue file using post reassembly IO'
 
     end subroutine mpi_Post_FileOut_Continue_Post_Reassembly_IO
+
+
+    subroutine mpi_Post_WallShearStress(myrank,U,V,W,TH,outTimeStep,wss)
+        
+        use MPI
+        use mpi_topology,   only : comm_1d_x1, comm_1d_x2, comm_1d_x3
+        use mpi_subdomain,  only : dx2_sub
+        use mpi_subdomain,  only : n1sub, n2sub, n3sub
+
+        implicit none
+        integer :: outTimeStep,myrank
+        double precision, dimension(0:n1sub,0:n2sub,0:n3sub) :: U,V,W,TH
+        double precision, dimension(:), pointer :: dx2
+        double precision :: dUdy_loc,dUdy_I,dUdy_K,wss,Tss
+        double precision :: dTdy_loc,dTdy_I,dTdy_K
+        character(len=23) :: filename_wallshearstress
+
+        integer :: i,j,k
+        integer :: im,jm,km
+        integer :: ip,jp,kp
+        integer :: Sc,Ec
+        integer :: Sm,Em
+        integer :: Sp,Ep
+        integer :: ierr
+
+        dx2  => dx2_sub
+
+        dUdy_loc=0.d0; dUdy_I=0.d0; dUdy_K=0.d0
+        dTdy_loc=0.d0; dTdy_I=0.d0; dTdy_K=0.d0
+        wss=0.d0     ; Tss=0.d0
+
+        if(comm_1d_x2%myrank==0) then
+            do k=1,n3sub
+            do i=1,n1sub
+                dudy_loc=dudy_loc+( U(i,2,k)- U(i,1,k))/(dx2(1)*0.5d0)
+                dTdy_loc=dTdy_loc+(TH(i,2,k)-TH(i,1,k))/(dx2(1)*0.5d0)
+            enddo
+            enddo
+        endif
+        if(comm_1d_x2%myrank==comm_1d_x2%nprocs-1) then
+            do k=1,n3sub
+            do i=1,n1sub
+                dudy_loc=dudy_loc+( U(i,n2sub-1,k)- U(i,n2sub,k))/(dx2_sub(n2sub-1)*0.5d0)
+                dTdy_loc=dTdy_loc+(TH(i,      2,k)-TH(i,    1,k))/(dx2_sub(1      )*0.5d0)
+            enddo
+            enddo
+        endif
+
+        dUdy_loc=dUdy_loc/real(n1sub*n3sub,8)
+        dTdy_loc=dTdy_loc/real(n1sub*n3sub,8)
+
+        call MPI_ALLREDUCE(dUdy_loc, dUdy_I, 1, MPI_DOUBLE_PRECISION, MPI_SUM, comm_1d_x1%mpi_comm, ierr)
+        call MPI_ALLREDUCE(dUdy_I  , dUdy_K, 1, MPI_DOUBLE_PRECISION, MPI_SUM, comm_1d_x3%mpi_comm, ierr)
+        call MPI_ALLREDUCE(dUdy_K  , wss   , 1, MPI_DOUBLE_PRECISION, MPI_SUM, comm_1d_x2%mpi_comm, ierr)
+
+        call MPI_ALLREDUCE(dTdy_loc, dTdy_I, 1, MPI_DOUBLE_PRECISION, MPI_SUM, comm_1d_x1%mpi_comm, ierr)
+        call MPI_ALLREDUCE(dTdy_I  , dTdy_K, 1, MPI_DOUBLE_PRECISION, MPI_SUM, comm_1d_x3%mpi_comm, ierr)
+        call MPI_ALLREDUCE(dTdy_K  , Tss   , 1, MPI_DOUBLE_PRECISION, MPI_SUM, comm_1d_x2%mpi_comm, ierr)
+
+        !wss=wss/real(np_dim(0)*np_dim(2),8)/2.d0
+        !Tss=Tss/real(np_dim(0)*np_dim(2),8)/2.d0
+
+        wss=wss/real(np1*np3,8)/2.d0
+        Tss=Tss/real(np1*np3,8)/2.d0
+
+        filename_wallshearstress='Monitor_WallShearStress'
+
+        if(myrank==0) then
+            open(unit=myrank,file=dir_instantfield//filename_wallshearstress//'.plt',position='append')
+                if(outTimeStep==1) write(myrank,*) 'VARIABLES="Timestep","wss","Tss"'
+                write(myrank,*) outTimeStep, wss, Tss
+            close(myrank)
+        endif
+
+    end subroutine mpi_Post_WallShearStress
 
 end module mpi_Post

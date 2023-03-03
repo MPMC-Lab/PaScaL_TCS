@@ -9,8 +9,8 @@ lib:
 	cd PaScaL_TDMA; make lib
 
 exe:
-	cd src; mkdir -p obj; make all
-
+#	cd src; mkdir -p obj; make all
+	cd run; mpirun -np 8 ./PaScaL_TCS.ex
 clean:
 	cd PaScaL_TDMA; make clean
 	cd src; make clean

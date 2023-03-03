@@ -8,7 +8,7 @@ OBJDIR = ./obj
 global      = $(OBJDIR)/module_global.o
 module_mpi  = $(OBJDIR)/module_mpi_topology.o $(OBJDIR)/module_mpi_subdomain.o
 solver	    = $(OBJDIR)/module_solve_thermal.o $(OBJDIR)/module_solve_momentum.o $(OBJDIR)/module_solve_pressure.o 
-analysis    = $(OBJDIR)/module_post.o 
+analysis    = $(OBJDIR)/module_post.o $(OBJDIR)/module_mpi_statistics.o
 main 	    = $(OBJDIR)/main.o 
 
 OBJS   	    = $(global) $(module_mpi) $(solver) $(analysis) $(main)
@@ -19,7 +19,8 @@ PaScaL_HOME = ../PaScaL_TDMA
 PaScaLINC = -I$(PaScaL_HOME)/include
 PaScaLLIB = -L$(PaScaL_HOME)/lib -lpascal_tdma
 
-FFTWINC = -I$(MKL_HOME)/include/fftw
+#FFTWINC = -I$(MKL_HOME)/include/fftw
+FFTWINC = -I/scratch/x2434a03/fftw3/fftw3-library/include
 
 FFTWFLAGS 	=  -mkl=sequential
 

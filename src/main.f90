@@ -34,6 +34,7 @@ program main
 
     use mpi_Post
     use timer
+    use mpi_statistics
 
     implicit none
 
@@ -94,11 +95,20 @@ program main
     call mpi_thermal_boundary()
     
     call mpi_momentum_allocation()
-    call mpi_momentum_initial()
+        !CJY: For Channel flow
+    if(problem.eq.0) then
+        call mpi_momentum_initial()
+    else if(problem.eq.1) then
+        call mpi_momentum_initial_channel()
+    endif
     call mpi_momentum_boundary()
 
     call mpi_pressure_allocation()
     call mpi_pressure_initial()
+
+    call mpi_statistics_allocation()
+    call mpi_statistics_xyzrank_allocation()
+
     call mpi_subdomain_DDT_transpose2()
     call mpi_pressure_wave_number()
 
@@ -145,6 +155,10 @@ program main
         call mpi_momentum_coeffi(T)
         call timer_stamp(3, stamp_main)
 
+        !call mpi_momentum_LES_constant_sm(Mu)
+        !call mpi_momentum_LES_constant_vr(Mu)
+        call mpi_subdomain_ghostcell_update(Mu)
+
         call mpi_momentum_solvedU(T)
         call timer_stamp(4, stamp_main)
 
@@ -189,6 +203,16 @@ program main
         call mpi_subdomain_ghostcell_update(dP)
         call timer_stamp(13, stamp_main)
 
+        ! CJY : For forced channel flow
+        if(problem.eq.1) then
+            call mpi_momentum_masscorrection(dU, dP)
+            call mpi_subdomain_ghostcell_update(U)
+            call mpi_subdomain_ghostcell_update(V)
+            call mpi_subdomain_ghostcell_update(W)
+            call mpi_momentum_deallocate_dUVW() !dU, dV, dW deallocated(for Channel flow)
+        else if(problem.eq.0) then
+        endif
+
         call mpi_pressure_Projection(invRho,U,V,W,P,comm_1d_x2%myrank,comm_1d_x2%nprocs) ! dealloc :: dP
         call timer_stamp(12, stamp_main)
 
@@ -198,12 +222,24 @@ program main
         call mpi_subdomain_ghostcell_update(P)
         call mpi_subdomain_ghostcell_update(dPhat)
         call timer_stamp(13, stamp_main)
+
+        ! Statistics
+        if (TimeStep >= print_start_step) then
+            call mpi_statistics_avg_xzt(myrank,U, V, W, P, T, Mu, dt)
+            if (mod(TimeStep-print_start_step, print_interval_step)==0) then
+                call mpi_statistics_Reynolds_Budget_out(myrank)
+                call mpi_statistics_fileout(myrank, Mumean)
+            endif
+        endif
         
         call mpi_momentum_coeffi_clean()
         call timer_stamp(14, stamp_main)
 
         call mpi_Post_Div(U,V,W,maxDivU)
         call timer_stamp(15, stamp_main)
+
+        call mpi_Post_WallShearStress(myrank, U, V, W, T, TimeStep, wss)
+      
         
         if(maxDivU>=1.d-3) then
             call mpi_Post_FileOut_InstanField(myrank,TimeStep,time,U,V,W,P,T)
@@ -225,11 +261,14 @@ program main
 
     if ( ContinueFileout==1 ) then
         call mpi_Post_FileOut_Continue_Post_Reassembly_IO(myrank,time,dt,U,V,W,P,T)
+        call mpi_Post_FileOut_InstanField(myrank,TimeStep,time,U,V,W,P,T)
     endif
     call timer_stamp(18, stamp_main)
 
     call timer_reduction()
     call timer_output(myrank, nprocs)
+
+    call mpi_statistics_clean()
 
     call mpi_pressure_clean()
     call mpi_momentum_clean()    

@@ -54,12 +54,24 @@ module mpi_momentum
         use mpi_subdomain,  only : n1sub, n2sub, n3sub
 
         implicit none
+        integer :: i, j, k
 
         allocate(U(0:n1sub,0:n2sub,0:n3sub),V(0:n1sub,0:n2sub,0:n3sub),W(0:n1sub,0:n2sub,0:n3sub))
         allocate(P(0:n1sub,0:n2sub,0:n3sub))
 
         allocate( UBCup_sub(0:n1sub,0:n3sub),VBCup_sub(0:n1sub,0:n3sub),WBCup_sub(0:n1sub,0:n3sub))
         allocate( UBCbt_sub(0:n1sub,0:n3sub),VBCbt_sub(0:n1sub,0:n3sub),WBCbt_sub(0:n1sub,0:n3sub))
+
+        do k = 0, n3sub
+        do i = 0, n1sub
+            UBCup_sub(i,k) = 0.d0
+            UBCbt_sub(i,k) = 0.d0 
+            VBCup_sub(i,k) = 0.d0
+            VBCbt_sub(i,k) = 0.d0 
+            WBCup_sub(i,k) = 0.d0
+            WBCbt_sub(i,k) = 0.d0
+        enddo
+        enddo
 
     end subroutine mpi_momentum_allocation
 
@@ -97,6 +109,226 @@ module mpi_momentum
 
     end subroutine mpi_momentum_initial
 
+    !>
+    !> @brief       Initialize velocity field for channel flow
+    !>
+    subroutine mpi_momentum_initial_channel() !cell
+        use MPI
+        use mpi_topology,   only : myrank, comm_1d_x1, comm_1d_x2, comm_1d_x3
+        use mpi_subdomain,  only : x1_sub, x2_sub, x3_sub, dx1_sub, dx2_sub, dx3_sub
+        use mpi_subdomain,  only : n1sub, n2sub, n3sub, n1msub, n2msub, n3msub
+
+        implicit none
+    
+        double precision, dimension(:), pointer ::  x1, x2, x3
+        double precision, dimension(:), pointer :: dx1, dx2, dx3
+        !integer, dimension(-1:n1sub+1,-1:n2sub+1,-1:n3sub+1), intent(in) :: cell
+        double precision, allocatable, dimension(:,:,:) :: RanNum1, RanNum2, RanNum3
+        
+        integer :: i,j,k
+        integer :: kp,km  
+        integer :: jp,jm
+        integer :: ip,im
+        integer :: ierr
+        !integer :: cellijk, cellip, celljp, cellkp, cellijp, cellikp, celljkp
+    
+        double precision:: yh, Umx
+        double precision:: Um, Um_I, Um_K, Um_total
+        double precision:: Vm, Vm_I, Vm_K, Vm_total
+        double precision:: Wm, Wm_I, Wm_K, Wm_total
+    
+        allocate(RanNum1(0:n1sub,0:n2sub,0:n3sub))
+        allocate(RanNum2(0:n1sub,0:n2sub,0:n3sub))
+        allocate(RanNum3(0:n1sub,0:n2sub,0:n3sub))
+
+        ! Pointer of grid information
+        x1 => x1_sub
+        x2 => x2_sub
+        x3 => x3_sub
+        dx1 => dx1_sub
+        dx2 => dx2_sub
+        dx3 => dx3_sub
+
+        U(0:n1sub, 0:n2sub, 0:n3sub)=0.d0
+        V(0:n1sub, 0:n2sub, 0:n3sub)=0.d0
+        W(0:n1sub, 0:n2sub, 0:n3sub)=0.d0
+        P(0:n1sub, 0:n2sub, 0:n3sub)=0.d0
+   
+        RanNum1(0:n1sub,0:n2sub,0:n3sub)=0.d0
+        RanNum2(0:n1sub,0:n2sub,0:n3sub)=0.d0
+        RanNum3(0:n1sub,0:n2sub,0:n3sub)=0.d0
+
+        Umx  = 1.5d0
+        call random_seed() 
+        call random_number(RanNum1)
+        call random_seed() 
+        call random_number(RanNum2)
+        call random_seed() 
+        call random_number(RanNum3)
+
+        ! Eliminate mean quantities
+        Um=0.d0; Vm=0.d0; Wm=0.d0
+
+        RanNum1(1:n1msub, 1:n2msub, 1:n3msub) = RanNum1(1:n1msub, 1:n2msub, 1:n3msub) - 0.5d0
+        RanNum2(1:n1msub, 1:n2msub, 1:n3msub) = RanNum2(1:n1msub, 1:n2msub, 1:n3msub) - 0.5d0
+        RanNum3(1:n1msub, 1:n2msub, 1:n3msub) = RanNum3(1:n1msub, 1:n2msub, 1:n3msub) - 0.5d0
+
+        do k=1,n3msub
+        do j=1,n2msub
+        do i=1,n1msub       
+            Um = Um + RanNum1(i,j,k) * dx1(i) * dx2(j) * dx3(k)
+            Vm = Vm + RanNum2(i,j,k) * dx1(i) * dx2(j) * dx3(k)
+            Wm = Wm + RanNum3(i,j,k) * dx1(i) * dx2(j) * dx3(k)
+        enddo
+        enddo
+        enddo
+        
+        Um = Um / (x1(n1sub)-x1(1)); Um = Um / (x2(n2sub)-x2(1)); Um = Um / (x3(n3sub)-x3(1)) 
+        Vm = Vm / (x1(n1sub)-x1(1)); Vm = Vm / (x2(n2sub)-x2(1)); Vm = Vm / (x3(n3sub)-x3(1)) 
+        Wm = Wm / (x1(n1sub)-x1(1)); Wm = Wm / (x2(n2sub)-x2(1)); Wm = Wm / (x3(n3sub)-x3(1))
+
+        RanNum1(1:n1msub, 1:n2msub, 1:n3msub) = RanNum1(1:n1msub, 1:n2msub, 1:n3msub) - Um
+        RanNum2(1:n1msub, 1:n2msub, 1:n3msub) = RanNum2(1:n1msub, 1:n2msub, 1:n3msub) - Vm
+        RanNum3(1:n1msub, 1:n2msub, 1:n3msub) = RanNum3(1:n1msub, 1:n2msub, 1:n3msub) - Wm 
+    
+        ! For Test
+        Um=0.d0; Vm=0.d0; Wm=0.d0
+
+        do k=1,n3msub
+        do j=1,n2msub
+        do i=1,n1msub       
+            Um = Um + RanNum1(i,j,k) * dx1(i) * dx2(j) * dx3(k)
+            Vm = Vm + RanNum2(i,j,k) * dx1(i) * dx2(j) * dx3(k)
+            Wm = Wm + RanNum3(i,j,k) * dx1(i) * dx2(j) * dx3(k)
+        enddo
+        enddo
+        enddo
+    
+        Um = Um / (x1(n1sub)-x1(1)); Um = Um / (x2(n2sub)-x2(1)); Um = Um / (x3(n3sub)-x3(1)) 
+        Vm = Vm / (x1(n1sub)-x1(1)); Vm = Vm / (x2(n2sub)-x2(1)); Vm = Vm / (x3(n3sub)-x3(1)) 
+        Wm = Wm / (x1(n1sub)-x1(1)); Wm = Wm / (x2(n2sub)-x2(1)); Wm = Wm / (x3(n3sub)-x3(1))
+    
+        Um=0.d0; Um_I=0.d0;  Um_K=0.d0;  Um_total=0.d0
+        Vm=0.d0; Vm_I=0.d0;  Vm_K=0.d0;  Vm_total=0.d0
+        Wm=0.d0; Wm_I=0.d0;  Wm_K=0.d0;  Wm_total=0.d0
+
+        do k=1,n3msub
+        do j=1,n2msub
+        do i=1,n1msub
+            yh = 0.5d0*( x2(j)+x2(j+1) )
+            ! For channel flow
+            U(i,j,k) = Umx*(1.d0-(yh/H-1.d0)**2.d0) + vper*Umx*RanNum1(i,j,k)
+            ! For uniform
+            ! U(i,j,k) = 1.d0 + vper*Umx*RanNum1(i,j,k)
+            V(i,j,k) =        vper*Umx*RanNum2(i,j,k)
+            W(i,j,k) =        vper*Umx*RanNum3(i,j,k)
+    
+            Um = Um + U(i,j,k) * dx1(i) * dx2(j) * dx3(k)
+            Vm = Vm + V(i,j,k) * dx1(i) * dx2(j) * dx3(k)
+            Wm = Wm + W(i,j,k) * dx1(i) * dx2(j) * dx3(k)
+        enddo
+        enddo
+        enddo
+
+        !Cell classification
+            ! do k=1,n3msub
+            !     kp = k + 1
+            ! do j=1,n2msub
+            !     jp = j + 1
+            ! do i=1,n1msub
+            !     ip = i + 1
+            !     cellijk=cell(i ,j ,k )
+            !     cellip =cell(ip,j ,k )
+            !     celljp =cell(i ,jp,k )
+            !     cellkp =cell(i ,j ,kp)
+            !     cellijp=cell(ip,jp,k )
+            !     cellikp=cell(ip,j ,kp)
+            !     celljkp=cell(i ,jp,kp)
+        
+            !     if( MOD((cellijk+celljp+cellkp+celljkp),10) .eq. 0 ) then
+            !         Um = Um - u(i,j,k) * dx1(i) * dx2(j) * dx3(k)
+            !         U(i,j,k)=0.d0
+            !     endif
+            !     if( MOD((cellijk+cellip+cellkp+cellikp),10) .eq. 0 ) then
+            !         Vm = Vm - v(i,j,k) * dx1(i) * dx2(j) * dx3(k)
+            !         V(i,j,k)=0.d0
+            !     endif
+            !     if( MOD((cellijk+cellip+celljp+cellijp),10) .eq. 0 ) then
+            !         Wm = Wm - w(i,j,k) * dx1(i) * dx2(j) * dx3(k)
+            !         W(i,j,k)=0.d0
+            !     endif
+            ! enddo
+            ! enddo
+            ! enddo
+
+            ! call MPI_ALLREDUCE(Um    , Um_I,     1, MPI_real_type, MPI_SUM, comm_1d_x1%mpi_comm, ierr)
+            ! call MPI_ALLREDUCE(Um_I  , Um_K,     1, MPI_real_type, MPI_SUM, comm_1d_x3%mpi_comm, ierr)
+            ! call MPI_ALLREDUCE(Um_K  , Um_total, 1, MPI_real_type, MPI_SUM, comm_1d_x2%mpi_comm, ierr)
+            ! call MPI_ALLREDUCE(Vm    , Vm_I,     1, MPI_real_type, MPI_SUM, comm_1d_x1%mpi_comm, ierr)
+            ! call MPI_ALLREDUCE(Vm_I  , Vm_K,     1, MPI_real_type, MPI_SUM, comm_1d_x3%mpi_comm, ierr)
+            ! call MPI_ALLREDUCE(Vm_K  , Vm_total, 1, MPI_real_type, MPI_SUM, comm_1d_x2%mpi_comm, ierr)
+            ! call MPI_ALLREDUCE(Wm    , Wm_I,     1, MPI_real_type, MPI_SUM, comm_1d_x1%mpi_comm, ierr)
+            ! call MPI_ALLREDUCE(Wm_I  , Wm_K,     1, MPI_real_type, MPI_SUM, comm_1d_x3%mpi_comm, ierr)
+            ! call MPI_ALLREDUCE(Wm_K  , Wm_total, 1, MPI_real_type, MPI_SUM, comm_1d_x2%mpi_comm, ierr)
+        
+            ! Um_total = Um_total / Volume
+            ! Vm_total = Vm_total / Volume 
+            ! Wm_total = Wm_total / Volume
+        
+            ! Um=0.d0; Vm=0.d0; Wm=0.d0
+        
+            ! do k=0,n3sub
+            !     kp = k + 1
+            ! do j=0,n2sub
+            !     jp = j + 1
+            ! do i=0,n1sub
+            !     ip = i + 1
+            !     cellijk=cell(i ,j ,k )
+            !     cellip =cell(ip,j ,k )
+            !     celljp =cell(i ,jp,k )
+            !     cellkp =cell(i ,j ,kp)
+            !     cellijp=cell(ip,jp,k )
+            !     cellikp=cell(ip,j ,kp)
+            !     celljkp=cell(i ,jp,kp)
+        
+            !     if( MOD((cellijk+celljp+cellkp+celljkp),10) .ne. 0 ) then
+            !         u(i,j,k)=u(i,j,k)*(1.d0/Um_total)
+            !     endif
+            !     if( MOD((cellijk+cellip+cellkp+cellikp),10) .ne. 0 ) then
+            !         !  v(i,j,k)=v(i,j,k)
+            !     endif
+            !     if( MOD((cellijk+cellip+celljp+cellijp),10) .ne. 0 ) then
+            !         ! w(i,j,k)=w(i,j,k)*(real(1.0,rp)/Wm_total)
+            !     endif
+        
+            !     Um = Um + U(i,j,k) * dx1(i) * dx2(j) * dx3(k)
+            !     Vm = Vm + V(i,j,k) * dx1(i) * dx2(j) * dx3(k)
+            !     Wm = Wm + W(i,j,k) * dx1(i) * dx2(j) * dx3(k)
+            ! enddo
+            ! enddo
+            ! enddo
+        !Cell classification end
+
+        call MPI_ALLREDUCE(Um    , Um_I,     1, MPI_DOUBLE_PRECISION, MPI_SUM, comm_1d_x1%mpi_comm, ierr)
+        call MPI_ALLREDUCE(Um_I  , Um_K,     1, MPI_DOUBLE_PRECISION, MPI_SUM, comm_1d_x3%mpi_comm, ierr)
+        call MPI_ALLREDUCE(Um_K  , Um_total, 1, MPI_DOUBLE_PRECISION, MPI_SUM, comm_1d_x2%mpi_comm, ierr)
+        call MPI_ALLREDUCE(Vm    , Vm_I,     1, MPI_DOUBLE_PRECISION, MPI_SUM, comm_1d_x1%mpi_comm, ierr)
+        call MPI_ALLREDUCE(Vm_I  , Vm_K,     1, MPI_DOUBLE_PRECISION, MPI_SUM, comm_1d_x3%mpi_comm, ierr)
+        call MPI_ALLREDUCE(Vm_K  , Vm_total, 1, MPI_DOUBLE_PRECISION, MPI_SUM, comm_1d_x2%mpi_comm, ierr)
+        call MPI_ALLREDUCE(Wm    , Wm_I,     1, MPI_DOUBLE_PRECISION, MPI_SUM, comm_1d_x1%mpi_comm, ierr)
+        call MPI_ALLREDUCE(Wm_I  , Wm_K,     1, MPI_DOUBLE_PRECISION, MPI_SUM, comm_1d_x3%mpi_comm, ierr)
+        call MPI_ALLREDUCE(Wm_K  , Wm_total, 1, MPI_DOUBLE_PRECISION, MPI_SUM, comm_1d_x2%mpi_comm, ierr)
+    
+        Um_total = Um_total / Volume
+        Vm_total = Vm_total / Volume 
+        Wm_total = Wm_total / Volume
+    
+        if(myrank==0) Write(*,'(1A20,1A5,1F8.3,1A5,1F8.3,1A5,1F8.3)') "Initial Condition","Um:", Um_total,"Vm:", Vm_total, "Wm:", Wm_total
+    
+        deallocate(RanNum1,RanNum2,RanNum3)
+    
+    end subroutine mpi_momentum_initial_channel
+    
     !>
     !> @brief       Initialize velocity boundary condition
     !>
@@ -173,6 +405,269 @@ module mpi_momentum
     end subroutine mpi_momentum_coeffi
 
     !>
+    !> @brief       Large eddy simulation - Eddy viscosity model:  Smagorisky model 
+    !>
+    subroutine mpi_momentum_LES_constant_sm(Mu)
+
+        use mpi_subdomain,  only : n1sub, n2sub, n3sub
+        use mpi_subdomain,  only : x2_sub
+        use mpi_subdomain,  only : dx1_sub,dx2_sub,dx3_sub,dmx1_sub,dmx2_sub,dmx3_sub
+
+        implicit none
+
+        !> @{ Local indexing variables
+        integer :: i,j,k
+        integer :: im,jm,km
+        integer :: ip,jp,kp
+        integer :: jup,jum
+        !> @}
+
+        !> @{ Local variables for LES calc 
+        double precision :: delta, damping, abs_strain
+        double precision :: SR11, SR22, SR33, SR12, SR13, SR23
+        double precision :: U1,U2,V1,V2,W1,W2 
+        double precision :: dis1,dis2
+        !> @}
+
+        !> @{ Local pointer for subdomain variables
+        double precision, dimension(:), pointer :: Y      
+        double precision, dimension(:), pointer :: dx1, dx2, dx3
+        double precision, dimension(:), pointer :: dmx1, dmx2, dmx3
+        !> @}
+
+        double precision :: Es_Retau, Ap, Cs, Cmu, Re
+        double precision, dimension(0:n1sub,0:n2sub,0:n3sub) :: Mu 
+
+        ! Pointer of grid information
+        Y => x2_sub
+        dx1 => dx1_sub
+        dx2 => dx2_sub
+        dx3 => dx3_sub
+        dmx1 => dmx1_sub
+        dmx2 => dmx2_sub
+        dmx3 => dmx3_sub
+
+        Ap= 0.1d0
+        Cs= 0.1d0
+        Re= 3355.d0
+        Cmu = 1.0d0/10
+        Es_Retau=(2.0d0*Re)**0.88d0*0.09d0
+
+        ! Get strain rate at cell center
+        do k=1,n3sub-1
+            kp=k+1
+            km=k-1
+        do j=1,n2sub-1
+            jp=j+1
+            jm=j-1
+        do i=1,n1sub-1
+            ip=i+1
+            im=i-1
+
+            delta = (dx1(i)*dx2(j)*dx3(k))**(1/3)
+            damping = 1.0d0
+            dis1=abs(Y(j)-x2_start)
+            dis2=abs(Y(j)-x2_end)
+
+            if(dis1.gt.dis2) damping=1.0d0 - exp(-(x2_end-Y(j))*(Es_Retau/Ap))
+            if(dis1.le.dis2) damping=1.0d0 - exp(-Y(j)*(Es_Retau/Ap))
+
+            SR11= ( U(ip,j ,k )-U(i ,j ,k ) )/dx1(i)
+            SR22= ( V(i ,jp,k )-V(i ,j ,k ) )/dx2(j)
+            SR33= ( W(i ,j ,kp)-W(i ,j ,k ) )/dx3(k)
+
+            U1= ( 0.5d0/dx1(i)*( dmx1(i)*U(ip,j ,k) + dmx1(ip)*U(i,j ,k) )*0.5d0*dx2(jm) + &
+                & 0.5d0/dx1(i)*( dmx1(i)*U(ip,jm,k) + dmx1(ip)*U(i,jm,k) )*0.5d0*dx2(j ) )/dmx2(j )
+            U2= ( 0.5d0/dx1(i)*( dmx1(i)*U(ip,jp,k) + dmx1(ip)*U(i,jp,k) )*0.5d0*dx2(j ) + &
+                & 0.5d0/dx1(i)*( dmx1(i)*U(ip,j ,k) + dmx1(ip)*U(i,j ,k) )*0.5d0*dx2(jp) )/dmx2(jp)
+            V1= ( 0.5d0/dx2(j)*( dmx2(j)*V(i ,jp,k) + dmx2(jp)*V(i ,j,k) )*0.5d0*dx1(im) + &
+                & 0.5d0/dx2(j)*( dmx2(j)*V(im,jp,k) + dmx2(jp)*V(im,j,k) )*0.5d0*dx1(i ) )/dmx1(i )
+            V2= ( 0.5d0/dx2(j)*( dmx2(j)*V(ip,jp,k) + dmx2(jp)*V(ip,j,k) )*0.5d0*dx1(i ) + &
+                & 0.5d0/dx2(j)*( dmx2(j)*V(i ,jp,k) + dmx2(jp)*V(i ,j,k) )*0.5d0*dx1(ip) )/dmx1(ip)
+            SR12= 0.5d0*( (U2-U1)/dx2(j) + (V2-V1)/dx1(i) )
+
+            U1= ( 0.5d0/dx1(i)*( dmx1(i)*U(ip,j,k ) + dmx1(ip)*U(i,j,k ) )*0.5d0*dx3(km) + &
+                & 0.5d0/dx1(i)*( dmx1(i)*U(ip,j,km) + dmx1(ip)*U(i,j,km) )*0.5d0*dx3(k ) )/dmx3(k )
+            U2= ( 0.5d0/dx1(i)*( dmx1(i)*U(ip,j,kp) + dmx1(ip)*U(i,j,kp) )*0.5d0*dx3(k ) + &
+                & 0.5d0/dx1(i)*( dmx1(i)*U(ip,j,k ) + dmx1(ip)*U(i,j,k ) )*0.5d0*dx3(kp) )/dmx3(kp)
+            W1= ( 0.5d0/dx3(k)*( dmx3(k)*W(i ,j,kp) + dmx3(kp)*W(i ,j,k) )*0.5d0*dx1(im) + &
+                & 0.5d0/dx3(k)*( dmx3(k)*W(im,j,kp) + dmx3(kp)*W(im,j,k) )*0.5d0*dx1(i ) )/dmx1(i )
+            W2= ( 0.5d0/dx3(k)*( dmx3(k)*W(ip,j,kp) + dmx3(kp)*W(ip,j,k) )*0.5d0*dx1(i ) + &
+                & 0.5d0/dx3(k)*( dmx3(k)*W(i ,j,kp) + dmx3(kp)*W(i ,j,k) )*0.5d0*dx1(ip) )/dmx1(ip)
+            SR13= 0.5d0*( (U2-U1)/dx3(k) + (W2-W1)/dx1(i) )
+
+            V1= ( 0.5d0/dx2(j)*( dmx2(j)*V(i,jp,k ) + dmx2(jp)*V(i,j,k ) )*0.5d0*dx3(km) + &
+                & 0.5d0/dx2(j)*( dmx2(j)*V(i,jp,km) + dmx2(jp)*V(i,j,km) )*0.5d0*dx3(k ) )/dmx3(k )
+            V2= ( 0.5d0/dx2(j)*( dmx2(j)*V(i,jp,kp) + dmx2(jp)*V(i,j,kp) )*0.5d0*dx3(k ) + &
+                & 0.5d0/dx2(j)*( dmx2(j)*V(i,jp,k ) + dmx2(jp)*V(i,j,k ) )*0.5d0*dx3(kp) )/dmx3(kp)
+            W1= ( 0.5d0/dx3(k)*( dmx3(k)*W(i,j ,kp) + dmx3(kp)*W(i,j ,k) )*0.5d0*dx2(jm) + &
+                & 0.5d0/dx3(k)*( dmx3(k)*W(i,jm,kp) + dmx3(kp)*W(i,jm,k) )*0.5d0*dx2(j ) )/dmx2(j )
+            W2= ( 0.5d0/dx3(k)*( dmx3(k)*W(i,jp,kp) + dmx3(kp)*W(i,jp,k) )*0.5d0*dx2(j ) + &
+                & 0.5d0/dx3(k)*( dmx3(k)*W(i,j ,kp) + dmx3(kp)*W(i,j ,k) )*0.5d0*dx2(jp) )/dmx2(jp)
+            SR23= 0.5d0*( (V2-V1)/dx3(k) + (W2-W1)/dx2(j) )
+
+            abs_strain= sqrt( 2.0d0*SR11**2.0d0 + 2.0d0*SR22**2.0d0 + 2.0d0*SR33**2.0d0 + &
+                        & + 4.0d0*SR12**2.0d0 + 4.0d0*SR13**2.0d0 + 4.0d0*SR23**2.0d0 )
+
+            ! SR(j)=SR(j) + ( Cs*((delta*damping)**2.0d0*abs_strain )/real(m1msb*m3msb)*dt
+            ! SR(j)=SR(j) + ( (Cs**2.0d0*((delta*damping)**2.0d0)*abs_strain)/CmU + 1.0d0) / real(m1msb*m3msb)*dt
+
+            Mu(i,j,k)     = (Cs**2.0d0*((delta*damping)**2.0d0)*abs_strain)/Cmu + 1.0d0
+        enddo
+        enddo
+        enddo
+
+    end subroutine mpi_momentum_LES_constant_sm
+
+    !>
+    !> @brief       Large eddy simulation - Eddy viscosity model:  Vreman model 
+    !>
+    subroutine mpi_momentum_LES_constant_vr(Mu)
+
+        use mpi_subdomain,  only : n1sub, n2sub, n3sub
+        use mpi_subdomain,  only : x2_sub
+        use mpi_subdomain,  only : dx1_sub,dx2_sub,dx3_sub,dmx1_sub,dmx2_sub,dmx3_sub
+
+        implicit none
+
+        !> @{ Local indexing variables
+        integer :: i,j,k
+        integer :: im,jm,km
+        integer :: ip,jp,kp
+        !> @}
+
+        !> @{ Local variables for LES calc 
+        double precision :: BB11, BB22, BB33, BB12, BB13, BB23, BB, AIJAIJ     
+        double precision :: DV1DX1, DV1DX2, DV1DX3, DV2DX1, DV2DX2, DV2DX3, DV3DX1, DV3DX2, DV3DX3
+        double precision :: U1,U2,V1,V2,W1,W2 
+        !> @}
+
+        !> @{ Local pointer for subdomain variables
+        double precision, dimension(:), pointer :: Y      
+        double precision, dimension(:), pointer :: dx1, dx2, dx3
+        double precision, dimension(:), pointer :: dmx1, dmx2, dmx3
+        !> @}
+
+        !> @{ Coefficients for LES calc 
+        double precision :: Es_Retau, Ap, Cs, Re
+        double precision :: Cv, temp
+        double precision :: damping,delta,dis1,dis2 
+        !> @}
+
+        double precision, dimension(0:n1sub,0:n2sub,0:n3sub) :: Mu 
+
+        ! Pointer of grid information
+        Y => x2_sub
+        dx1 => dx1_sub
+        dx2 => dx2_sub
+        dx3 => dx3_sub
+        dmx1 => dmx1_sub
+        dmx2 => dmx2_sub
+        dmx3 => dmx3_sub
+
+        Ap= 0.1d0
+        Cs= 0.1d0
+        Re= 100.d0
+        Es_Retau=(2.0d0*Re)**0.88d0*0.09d0
+        Cv=2.5d0*Cs*Cs
+
+        ! Get strain rate at cell center
+        do k=1,n3sub-1
+            kp=k+1
+            km=k-1
+        do j=1,n2sub-1
+            jp=j+1
+            jm=j-1
+        do i=1,n1sub-1
+            ip=i+1
+            im=i-1
+
+            delta = (dx1(i)*dx2(j)*dx3(k))**(1.d0/3.d0)
+            damping = 1.d0
+            dis1=dabs(Y(j)-x2_start)
+            dis2=dabs(Y(j)-x2_end)
+
+            if(dis1.gt.dis2) damping=1.0d0 - exp(-(x2_end-Y(j))*(Es_Retau/Ap))
+            if(dis1.le.dis2) damping=1.0d0 - exp(-Y(j)*(Es_Retau/Ap))
+
+            DV1DX1= ( U(ip,j ,k )-U(i ,j ,k ) )/dx1(i)
+            DV2DX2= ( V(i ,jp,k )-V(i ,j ,k ) )/dx2(j)
+            DV3DX3= ( W(i ,j ,kp)-W(i ,j ,k ) )/dx3(k)
+
+            U1= ( 0.5d0/dx1(i)*( dmx1(i)*U(ip,j ,k) + dmx1(ip)*U(i,j ,k) )*0.5d0*dx2(jm) + &
+                & 0.5d0/dx1(i)*( dmx1(i)*U(ip,jm,k) + dmx1(ip)*U(i,jm,k) )*0.5d0*dx2(j ) )/dmx2(j )
+            U2= ( 0.5d0/dx1(i)*( dmx1(i)*U(ip,jp,k) + dmx1(ip)*U(i,jp,k) )*0.5d0*dx2(j ) + &
+                & 0.5d0/dx1(i)*( dmx1(i)*U(ip,j ,k) + dmx1(ip)*U(i,j ,k) )*0.5d0*dx2(jp) )/dmx2(jp)
+            DV1DX2= (U2-U1)/dx2(j)
+
+            U1= ( 0.5d0/dx1(i)*( dmx1(i)*U(ip,j,k ) + dmx1(ip)*U(i,j,k ) )*0.5d0*dx3(km) + &
+                & 0.5d0/dx1(i)*( dmx1(i)*U(ip,j,km) + dmx1(ip)*U(i,j,km) )*0.5d0*dx3(k ) )/dmx3(k )
+            U2= ( 0.5d0/dx1(i)*( dmx1(i)*U(ip,j,kp) + dmx1(ip)*U(i,j,kp) )*0.5d0*dx3(k ) + &
+                & 0.5d0/dx1(i)*( dmx1(i)*U(ip,j,k ) + dmx1(ip)*U(i,j,k ) )*0.5d0*dx3(kp) )/dmx3(kp)
+            DV1DX3= (U2-U1)/dx3(k)
+
+            V1= ( 0.5d0/dx2(j)*( dmx2(j)*V(i ,jp,k) + dmx2(jp)*V(i ,j,k) )*0.5d0*dx1(im) + &
+                & 0.5d0/dx2(j)*( dmx2(j)*V(im,jp,k) + dmx2(jp)*V(im,j,k) )*0.5d0*dx1(i ) )/dmx1(i )
+            V2= ( 0.5d0/dx2(j)*( dmx2(j)*V(ip,jp,k) + dmx2(jp)*V(ip,j,k) )*0.5d0*dx1(i ) + &
+                & 0.5d0/dx2(j)*( dmx2(j)*V(i ,jp,k) + dmx2(jp)*V(i ,j,k) )*0.5d0*dx1(ip) )/dmx1(ip)
+            DV2DX1= (V2-V1)/dx1(i)
+
+            V1= ( 0.5d0/dx2(j)*( dmx2(j)*V(i,jp,k ) + dmx2(jp)*V(i,j,k ) )*0.5d0*dx3(km) + &
+                & 0.5d0/dx2(j)*( dmx2(j)*V(i,jp,km) + dmx2(jp)*V(i,j,km) )*0.5d0*dx3(k ) )/dmx3(k )
+            V2= ( 0.5d0/dx2(j)*( dmx2(j)*V(i,jp,kp) + dmx2(jp)*V(i,j,kp) )*0.5d0*dx3(k ) + &
+                & 0.5d0/dx2(j)*( dmx2(j)*V(i,jp,k ) + dmx2(jp)*V(i,j,k ) )*0.5d0*dx3(kp) )/dmx3(kp)
+            DV2DX3= (V2-V1)/dx3(k)
+
+            W1= ( 0.5d0/dx3(k)*( dmx3(k)*W(i ,j,kp) + dmx3(kp)*W(i ,j,k) )*0.5d0*dx1(im) + &
+                & 0.5d0/dx3(k)*( dmx3(k)*W(im,j,kp) + dmx3(kp)*W(im,j,k) )*0.5d0*dx1(i ) )/dmx1(i )
+            W2= ( 0.5d0/dx3(k)*( dmx3(k)*W(ip,j,kp) + dmx3(kp)*W(ip,j,k) )*0.5d0*dx1(i ) + &
+                & 0.5d0/dx3(k)*( dmx3(k)*W(i ,j,kp) + dmx3(kp)*W(i ,j,k) )*0.5d0*dx1(ip) )/dmx1(ip)             
+            DV3DX1= (W2-W1)/dx1(i)
+
+            W1= ( 0.5d0/dx3(k)*( dmx3(k)*W(i,j ,kp) + dmx3(kp)*W(i,j ,k) )*0.5d0*dx2(jm) + &
+                & 0.5d0/dx3(k)*( dmx3(k)*W(i,jm,kp) + dmx3(kp)*W(i,jm,k) )*0.5d0*dx2(j ) )/dmx2(j )
+            W2= ( 0.5d0/dx3(k)*( dmx3(k)*W(i,jp,kp) + dmx3(kp)*W(i,jp,k) )*0.5d0*dx2(j ) + &
+                & 0.5d0/dx3(k)*( dmx3(k)*W(i,j ,kp) + dmx3(kp)*W(i,j ,k) )*0.5d0*dx2(jp) )/dmx2(jp)
+            DV3DX2= (W2-W1)/dx2(j)
+
+            ! vreman paper 
+            !BB11 = DV1DX1*DV1DX1*(dx1(i)*dx1(i)) + DV1DX2*DV1DX2*(dx2(j)*dx2(j)) + DV1DX3*DV1DX3*(dx3(k)*dx3(k))
+            !BB22 = DV2DX1*DV2DX1*(dx1(i)*dx1(i)) + DV2DX2*DV2DX2*(dx2(j)*dx2(j)) + DV2DX3*DV2DX3*(dx3(k)*dx3(k))
+            !BB33 = DV3DX1*DV3DX1*(dx1(i)*dx1(i)) + DV3DX2*DV3DX2*(dx2(j)*dx2(j)) + DV3DX3*DV3DX3*(dx3(k)*dx3(k))
+            !BB12 = DV1DX1*DV2DX1*(dx1(i)*dx1(i)) + DV1DX2*DV2DX2*(dx2(j)*dx2(j)) + DV1DX3*DV2DX3*(dx3(k)*dx3(k))
+            !BB13 = DV1DX1*DV3DX1*(dx1(i)*dx1(i)) + DV1DX2*DV3DX2*(dx2(j)*dx2(j)) + DV1DX3*DV3DX3*(dx3(k)*dx3(k))
+            !BB23 = DV2DX1*DV3DX1*(dx1(i)*dx1(i)) + DV2DX2*DV3DX2*(dx2(j)*dx2(j)) + DV2DX3*DV3DX3*(dx3(k)*dx3(k))
+            
+            ! +) considering damping 
+            BB11 = DV1DX1*DV1DX1*(damping*dx1(i)) + DV1DX2*DV1DX2*(damping*dx2(j)) + DV1DX3*DV1DX3*(damping*dx3(k))
+            BB22 = DV2DX1*DV2DX1*(damping*dx1(i)) + DV2DX2*DV2DX2*(damping*dx2(j)) + DV2DX3*DV2DX3*(damping*dx3(k))
+            BB33 = DV3DX1*DV3DX1*(damping*dx1(i)) + DV3DX2*DV3DX2*(damping*dx2(j)) + DV3DX3*DV3DX3*(damping*dx3(k))
+            BB12 = DV1DX1*DV2DX1*(damping*dx1(i)) + DV1DX2*DV2DX2*(damping*dx2(j)) + DV1DX3*DV2DX3*(damping*dx3(k))
+            BB13 = DV1DX1*DV3DX1*(damping*dx1(i)) + DV1DX2*DV3DX2*(damping*dx2(j)) + DV1DX3*DV3DX3*(damping*dx3(k))
+            BB23 = DV2DX1*DV3DX1*(damping*dx1(i)) + DV2DX2*DV3DX2*(damping*dx2(j)) + DV2DX3*DV3DX3*(damping*dx3(k))
+
+            BB = BB11*BB22 - BB12*BB12 + BB11*BB33 - BB13*BB13 + BB22*BB33 - BB23*BB23
+        
+            AIJAIJ = DV1DX1*DV1DX1 + DV2DX1*DV2DX1 + DV3DX1*DV3DX1    &
+                + DV1DX2*DV1DX2 + DV2DX2*DV2DX2 + DV3DX2*DV3DX2    & 
+                + DV1DX3*DV1DX3 + DV2DX3*DV2DX3 + DV3DX3*DV3DX3    
+        
+            ! For Single Precision
+            temp = BB / AIJAIJ
+
+            if(temp.lt.1e-12) then
+                temp = 0.d0
+            endif
+            
+            Mu(i,j,k)     = ( Cv * SQRT ( temp ) ) / Cmu + 1.d0
+
+        enddo
+        enddo
+        enddo
+
+    end subroutine mpi_momentum_LES_constant_vr
+
+    !>
     !> @brief       Update velocity field with the solved incremental velocity fields
     !>
     subroutine mpi_momentum_pseudoupdateUVW()
@@ -201,11 +696,82 @@ module mpi_momentum
             enddo
         enddo
 
+    end subroutine mpi_momentum_pseudoupdateUVW
+
+    subroutine mpi_momentum_deallocate_dUVW()
+        implicit none
+        
         deallocate(dU)
         deallocate(dV)
         deallocate(dW)
+
+    end subroutine mpi_momentum_deallocate_dUVW
+
+    subroutine mpi_momentum_masscorrection(dU, dP) !cell
         
-    end subroutine mpi_momentum_pseudoupdateUVW
+        use MPI
+        use mpi_topology,   only : comm_1d_x1, comm_1d_x2, comm_1d_x3
+        use mpi_subdomain,  only : dx1_sub, dx2_sub, dx3_sub, dmx1_sub, dmx2_sub, dmx3_sub
+        use mpi_subdomain,  only : n1sub, n2sub, n3sub, n1msub, n2msub, n3msub
+
+        implicit none
+
+        double precision, dimension(:), pointer :: dx1, dx2, dx3
+        double precision, dimension(:), pointer :: dmx1, dmx2, dmx3
+        double precision, dimension(0:n1sub,0:n2sub,0:n3sub), intent(in) :: dU, dP
+
+        integer :: i,j,k
+        integer :: myrank
+        ! !integer :: cellijk, celljp, cellkp, celljkp
+        
+        double precision :: flow1, flow1_total
+        double precision :: DMpresg, DMpresg_total
+        double precision, dimension(1:2) :: package, package_I, package_K, package_total
+        integer :: ierr
+
+        ! ! Pointer of grid information
+
+        dx1  => dx1_sub
+        dx2  => dx2_sub
+        dx3  => dx3_sub
+        dmx1 => dmx1_sub
+        dmx2 => dmx2_sub
+        dmx3 => dmx3_sub
+
+        flow1=0.d0; DMpresg=0.d0
+        flow1_total=0.d0; DMpresg_total=0.d0
+        package=0.d0; package_I=0.d0; package_K=0.d0; package_total=0.d0
+
+
+        do k=1,n3msub
+        do j=1,n2msub
+        do i=1,n1msub
+            flow1   =   flow1 + (U(i,j,k)-dU(i,j,k))*dx2(j)*dmx1(i)*dx3(k)
+            DMpresg = DMpresg + U(i,j,k)*dx2(j)*dmx1(i)*dx3(k) - dt*(dP(i,j,k)-dP(i-1,j,k))*dx2(j)*dx3(k)
+        enddo
+        enddo
+        enddo
+
+        package(1)=flow1
+        package(2)=DMpresg
+        call MPI_Allreduce(package  , package_I    ,2,MPI_DOUBLE_PRECISION,MPI_SUM,comm_1d_x1%mpi_comm, ierr)
+        call MPI_Allreduce(package_I, package_K    ,2,MPI_DOUBLE_PRECISION,MPI_SUM,comm_1d_x3%mpi_comm, ierr)
+        call MPI_Allreduce(package_K, package_total,2,MPI_DOUBLE_PRECISION,MPI_SUM,comm_1d_x2%mpi_comm, ierr)
+
+        flow1_total   = package_total(1)
+        DMpresg_total = package_total(2)
+        DMpresg_total = (DMpresg_total - flow1_total)/Volume/dt
+        presgrad1     = presgrad1 + DMpresg_total
+
+        do k = 1, n3msub
+        do j = 1, n2msub
+        do i = 1, n1msub
+            U(i,j,k) = U(i,j,k) - dt*DMpresg_total
+        enddo
+        enddo
+        enddo
+
+    end subroutine mpi_momentum_masscorrection
 
     !>
     !> @brief       deallocate the momentum coefficients

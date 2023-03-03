@@ -7,9 +7,9 @@ dir_instantfield    = './data/2_instanfield/'
 /
 
 &meshes
-n1m = 512
+n1m = 128
 n2m = 128
-n3m = 256
+n3m = 128
 /
 
 &MPI_procs
@@ -42,17 +42,35 @@ H       = 1
 Aspect3 = 2
 /
 
+&flow_style
+problem = 1
+/
+
+&setting_RBC
+Ra      = 1e2
+Pr      = 1.
+/
+
+&setting_channel
+Re      = 1e2
+Pr      = 1.
+/
+
+&setting_urban
+Re      = 1e2
+Pr      = 1.
+/
+
 &sim_parameter
-Ra      = 1E2
-Pr      = 1
 DeltaT  = 10.
 MaxCFL  = 1.0
+vper    = 0.3
 /
 
 &sim_control
 dtStart             = 5.0D-2
 tStart              = 0.d0
-Timestepmax         = 10
-print_start_step    = 100000
-print_interval_step = 100000
+Timestepmax         = 10000
+print_start_step    = 10000
+print_interval_step = 10000
 /

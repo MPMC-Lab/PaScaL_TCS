@@ -26,7 +26,7 @@ module global
     double precision, parameter :: PI = acos(-1.d0)
 
     ! Physical parameters
-    double precision :: Pr, Ra, Gr
+    double precision :: Pr, Ra, Re, Gr
     double precision :: Cmu, Cmt, Ct, Cmp
 
     ! Computational size for the physical domain and time discretization
@@ -39,12 +39,12 @@ module global
     integer :: UNIFORM1,UNIFORM2,UNIFORM3
     double precision :: GAMMA1, GAMMA2, GAMMA3
 
-    integer :: Timestepmax
+    integer :: Timestepmax, problem
     double precision :: time,dt
     double precision :: CFL,MaxCFL, dtStart, tStart, dtMax
 
     ! Physical size of the computational domain
-    double precision :: L1,L2,L3
+    double precision :: L1,L2,L3, Volume
     double precision :: H,Aspect1,Aspect3
     double precision :: x1_start,x2_start,x3_start
     double precision :: x1_end,x2_end,x3_end
@@ -62,9 +62,14 @@ module global
     character(len=128) dir_cont_fileout
     character(len=128) dir_instantfield
     character(len=128) dir_cont_filein
+    character(len=128) dir_statistics ! Statistics from YMG
+
     integer :: print_start_step,print_interval_step,print_j_index_wall,print_j_index_bulk,print_k_index
     integer :: ContinueFilein
     integer :: ContinueFileout
+
+    ! CJY : Parameters for channel flow
+    double precision :: presgrad1, wss, vper !YMG : adding vper for initial channel random number
     
     contains
     !>
@@ -86,10 +91,13 @@ module global
         namelist /uniform_mesh/         uniform1, uniform2, uniform3
         namelist /mesh_stretch/         gamma1, gamma2, gamma3
         namelist /aspect_ratio/         Aspect1, H, Aspect3
-        namelist /sim_parameter/        Ra, Pr, DeltaT, MaxCFL
+        namelist /flow_style/           problem
+        namelist /setting_RBC/          Ra, Pr
+        namelist /setting_channel/      Re, Pr
+        namelist /setting_urban/        Re, Pr
+        namelist /sim_parameter/        DeltaT, MaxCFL, vper
         namelist /sim_control/          dtStart, tStart, Timestepmax, print_start_step, print_interval_step
         namelist /sim_continue/         ContinueFilein, ContinueFileout, dir_cont_filein, dir_cont_fileout, dir_instantfield
-
 
         ! Using file input
         open(unit = 1, file = "PARA_INPUT.dat")
@@ -100,6 +108,10 @@ module global
         read(1, uniform_mesh)
         read(1, mesh_stretch)
         read(1, aspect_ratio)
+        read(1, flow_style)
+        read(1, setting_RBC)
+        read(1, setting_channel)
+        read(1, setting_urban)
         read(1, sim_parameter)
         read(1, sim_control)
         close(1)
@@ -136,9 +148,19 @@ module global
         KPP0  = c10
         Mu0   = a10*d10            
 
-        Cmu = sqrt(Pr/Ra); Cmt = 1.d0; Ct  = 1.d0/sqrt(Ra*Pr)
-        Gr  = Ra/Pr
-        Cmp = 1.d0
+        if(problem.eq.0) then ! RBC
+            Cmu = sqrt(Pr/Ra);    Cmt = 1.0d0;   Ct  = 1.0d0/sqrt(Ra*Pr)
+            Gr  = Ra/Pr
+            Cmp = 1.0d0
+        else if(problem.eq.1) then ! Channel
+            Cmu = 1.0d0/Re; Cmt = 0.0d0; Ct  = 1.0d0/(Re*Pr)
+            Gr  = Ra/Pr
+            Cmp = 1.0d0
+        else if(problem.eq.2) then  ! Urban
+            Cmu = 1.0d0/Re; Cmt = 0.0d0; Ct  = 1.0d0/(Re*Pr)
+            Gr  = Ra/Pr
+            Cmp = 1.0d0
+        endif
 
         ! Computational size for the physical domain and time discretization
         n1=n1m+1;n1p=n1+1;
@@ -147,8 +169,10 @@ module global
 
         ! Physical size of the computational domain
         L1=H*Aspect1
-        L2=H
+        L2=2.0d0*H
         L3=H*Aspect3
+
+        Volume = L1*L2*L3
 
         x1_start = 0.0d0
         x2_start = 0.0d0
