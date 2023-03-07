@@ -34,3 +34,7 @@ Please use the following BibTeX when you refer to this project.
 
 # References
 For more information, please see the reference paper and [Multi-Physics Modeling and Computation Lab.](https://mpmc.yonsei.ac.kr/)
+
+# Information
+- problem: 0. RBC 1. Channel 2. Urban
+- LES: 0. No-option 1. Constant Smagorinsky 2. Constant Vreman

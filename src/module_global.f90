@@ -26,7 +26,7 @@ module global
     double precision, parameter :: PI = acos(-1.d0)
 
     ! Physical parameters
-    double precision :: Pr, Ra, Re, Gr
+    double precision :: Pr, Ra, Re_c, Re_u, Gr
     double precision :: Cmu, Cmt, Ct, Cmp
 
     ! Computational size for the physical domain and time discretization
@@ -58,6 +58,8 @@ module global
     double precision :: c10, c11, c12, c13, c14, c15
     double precision :: d10, d11, d12, d13, d14, d15
     double precision :: KPP0, Rho0, Cp0, Mu0
+
+    integer  :: les_model
 
     character(len=128) dir_cont_fileout
     character(len=128) dir_instantfield
@@ -93,8 +95,9 @@ module global
         namelist /aspect_ratio/         Aspect1, H, Aspect3
         namelist /flow_style/           problem
         namelist /setting_RBC/          Ra, Pr
-        namelist /setting_channel/      Re, Pr
-        namelist /setting_urban/        Re, Pr
+        namelist /setting_channel/      Re_c, Pr
+        namelist /setting_urban/        Re_u, Pr
+        namelist /les/                  les_model
         namelist /sim_parameter/        DeltaT, MaxCFL, vper
         namelist /sim_control/          dtStart, tStart, Timestepmax, print_start_step, print_interval_step
         namelist /sim_continue/         ContinueFilein, ContinueFileout, dir_cont_filein, dir_cont_fileout, dir_instantfield
@@ -112,9 +115,11 @@ module global
         read(1, setting_RBC)
         read(1, setting_channel)
         read(1, setting_urban)
+        read(1, les)
         read(1, sim_parameter)
         read(1, sim_control)
         close(1)
+
 
         Uup = 0.d0;Ubt = 0.d0
         Vup = 0.d0;Vbt = 0.d0
@@ -153,11 +158,11 @@ module global
             Gr  = Ra/Pr
             Cmp = 1.0d0
         else if(problem.eq.1) then ! Channel
-            Cmu = 1.0d0/Re; Cmt = 0.0d0; Ct  = 1.0d0/(Re*Pr)
+            Cmu = 1.0d0/Re_c; Cmt = 0.0d0; Ct  = 1.0d0/(Re_c*Pr)
             Gr  = Ra/Pr
             Cmp = 1.0d0
         else if(problem.eq.2) then  ! Urban
-            Cmu = 1.0d0/Re; Cmt = 0.0d0; Ct  = 1.0d0/(Re*Pr)
+            Cmu = 1.0d0/Re_u; Cmt = 0.0d0; Ct  = 1.0d0/(Re_u*Pr)
             Gr  = Ra/Pr
             Cmp = 1.0d0
         endif

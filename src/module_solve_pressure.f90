@@ -137,12 +137,13 @@ module mpi_pressure
     !> @param       VBCup_sub   y-velocity boundary condition at upper wall
     !> @param       VBCbt_sub   y-velocity boundary condition at lower wall
     !>
-    subroutine mpi_pressure_RHS(invRho,U,V,W,VBCup_sub,VBCbt_sub)
+    subroutine mpi_pressure_RHS(invRho,U,V,W)
 
         use mpi_subdomain,  only : n1sub, n2sub, n3sub 
-        use mpi_subdomain,  only : i_indexS, jC_BC
+        use mpi_subdomain,  only : iC_BC, jC_BC, kC_BC
         use mpi_subdomain,  only : n1sub, n2sub, n3sub, n1msub, n2msub, n3msub
         use mpi_subdomain,  only : dx1_sub,dx2_sub,dx3_sub,dmx1_sub,dmx2_sub,dmx3_sub
+        use mpi_momentum,   only : XMBC, YMBC, ZMBC
 
         implicit none
 
@@ -155,10 +156,9 @@ module mpi_pressure
         !> @}
 
         !> @{ Local indexing variables
-        integer :: i,j,k
-        integer :: kp,km  
-        integer :: jp,jm,jvm,jvp
-        integer :: ip,im
+        integer :: i, j, k
+        integer :: im ,ip ,jm ,jp ,km ,kp
+        integer :: ium,iup,jvm,jvp,kwm,kwp
         !> @}
 
         !> @{ Local variables for matrix and RHS coefficients calculation
@@ -180,27 +180,22 @@ module mpi_pressure
         allocate(PRHS(1:n1msub,1:n2msub,1:n3msub))
         
         do k = 1, n3msub
-
-            kp = k+1
-            km = k-1
-
+            kp=k+1; km=k-1;
+            kwm = kC_BC(km); kwp = kC_BC(kp)
             do j = 1, n2msub
+                jp=j+1; jm=j-1;
+                jvm = jC_BC(jm); jvp = jC_BC(jp)
+                do i = 1, n1msub
+                    ip=i+1; im=i-1;
+                    ium = iC_BC(im); iup = iC_BC(ip)
 
-                jp = j + 1
-                jm = j - 1
-                jvm = jC_BC(jm)
-                jvp = jC_BC(jp)
+                    DivUm = ( dble(iup)*U(ip,j, k ) - dble(ium)*U(i,j,k)  )/dx1(i) &
+                          + ( dble(jvp)*V(i, jp,k ) - dble(jvm)*V(i,j,k)  )/dx2(j) &
+                          + ( dble(kwp)*W(i, j, kp) - dble(kwm)*W(i,j,k)  )/dx3(k)
 
-                do i = i_indexS, n1msub
-
-                    ip = i + 1
-                    im = i - 1
-                    DivUm = (            U(ip,j, k) -           U(i,j,k)  )/dx1(i) &
-                          + ( dble(jvp) *V(i, jp,k) - dble(jvm)*V(i,j,k)  )/dx2(j) &
-                          + (            W(i, j, kp) -          W(i,j,k)  )/dx3(k)
-
-                    cbc = dble(1.d0 - jvm)*VBCbt_sub(i,k)/dx2(j) &
-                        - dble(1.d0 - jvp)*VBCup_sub(i,k)/dx2(j)
+                    cbc = dble(1-ium) * XMBC(j,k,1,1) /dx1(i) - dble(1-iup) * XMBC(j,k,1,2) /dx1(i)  &
+                        + dble(1-jvm) * YMBC(i,k,2,1) /dx2(j) - dble(1-jvp) * YMBC(i,k,2,2) /dx2(j)  &
+                        + dble(1-kwm) * ZMBC(i,j,3,1) /dx3(k) - dble(1-kwp) * ZMBC(i,j,3,2) /dx3(k)
 
                     ddpdx1 = (dPhat(i, j, k) - dPhat(im,j, k))/dmx1(i)
                     ddpdx2 = (dPhat(ip,j, k) - dPhat(i, j, k))/dmx1(ip)
@@ -223,10 +218,9 @@ module mpi_pressure
                               + ((1.d0-invRho6)*ddpdz6 - (1.d0-invRho5)*ddpdz5)/dx3(k) 
 
                     PRHS(i,j,k) = (DivUm - cbc)/dt/Cmp + ExtraTerm
-                enddo
-                
-            end do
-        end do
+                enddo 
+            enddo
+        enddo
         
     end subroutine mpi_pressure_RHS
 

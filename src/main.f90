@@ -155,9 +155,13 @@ program main
         call mpi_momentum_coeffi(T)
         call timer_stamp(3, stamp_main)
 
-        !call mpi_momentum_LES_constant_sm(Mu)
-        !call mpi_momentum_LES_constant_vr(Mu)
-        call mpi_subdomain_ghostcell_update(Mu)
+        if(les_model==1) then
+            call mpi_momentum_LES_constant_sm(Mu)
+            call mpi_subdomain_ghostcell_update(Mu)
+        elseif(les_model==2) then
+            call mpi_momentum_LES_constant_vr(Mu)
+            call mpi_subdomain_ghostcell_update(Mu)
+        endif
 
         call mpi_momentum_solvedU(T)
         call timer_stamp(4, stamp_main)
@@ -194,7 +198,7 @@ program main
         call mpi_subdomain_ghostcell_update(W)
         call timer_stamp(13, stamp_main)
 
-        call mpi_pressure_RHS(invRho,U,V,W,VBCup_sub,VBCbt_sub)
+        call mpi_pressure_RHS(invRho,U,V,W)
         call timer_stamp(10, stamp_main)
 
         call mpi_pressure_Poisson_FFT2(dx2_sub,dmx2_sub)
@@ -223,14 +227,16 @@ program main
         call mpi_subdomain_ghostcell_update(dPhat)
         call timer_stamp(13, stamp_main)
 
-        ! Statistics
-        if (TimeStep >= print_start_step) then
-            call mpi_statistics_avg_xzt(myrank,U, V, W, P, T, Mu, dt)
-            if (mod(TimeStep-print_start_step, print_interval_step)==0) then
-                call mpi_statistics_Reynolds_Budget_out(myrank)
-                call mpi_statistics_fileout(myrank, Mumean)
-            endif
-        endif
+        !  Statistics
+        !   if (TimeStep >= print_start_step) then
+        !       call mpi_statistics_avg_xzt(myrank, U, V, W, P, T, Mu, dt)
+        !       if (mod(TimeStep-print_start_step, print_interval_step)==0) then
+        !           call mpi_statistics_Reynolds_Budget_out(myrank)
+        !           call mpi_statistics_fileout(myrank, Mumean)
+        !       endif
+        !   endif
+
+        call mpi_Post_FileOut_InstanField(myrank,TimeStep,time,U,V,W,P,T)
         
         call mpi_momentum_coeffi_clean()
         call timer_stamp(14, stamp_main)
@@ -261,7 +267,6 @@ program main
 
     if ( ContinueFileout==1 ) then
         call mpi_Post_FileOut_Continue_Post_Reassembly_IO(myrank,time,dt,U,V,W,P,T)
-        call mpi_Post_FileOut_InstanField(myrank,TimeStep,time,U,V,W,P,T)
     endif
     call timer_stamp(18, stamp_main)
 

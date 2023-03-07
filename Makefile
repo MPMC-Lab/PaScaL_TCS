@@ -17,3 +17,6 @@ clean:
 
 execlean:
 	cd src; make clean
+
+rm:
+	rm -r ./run/data

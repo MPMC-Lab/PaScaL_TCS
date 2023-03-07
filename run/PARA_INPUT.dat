@@ -7,9 +7,9 @@ dir_instantfield    = './data/2_instanfield/'
 /
 
 &meshes
-n1m = 128
-n2m = 128
-n3m = 128
+n1m = 32
+n2m = 64
+n3m = 32
 /
 
 &MPI_procs
@@ -52,25 +52,29 @@ Pr      = 1.
 /
 
 &setting_channel
-Re      = 1e2
+Re_c    = 3355.0
 Pr      = 1.
 /
 
 &setting_urban
-Re      = 1e2
+Re_u    = 1e2
 Pr      = 1.
+/
+
+&les
+les_model = 2
 /
 
 &sim_parameter
 DeltaT  = 10.
-MaxCFL  = 1.0
-vper    = 0.3
+MaxCFL  = 2.0
+vper    = 0.7
 /
 
 &sim_control
 dtStart             = 5.0D-2
 tStart              = 0.d0
-Timestepmax         = 10000
-print_start_step    = 10000
-print_interval_step = 10000
+Timestepmax         = 100
+print_start_step    = 10
+print_interval_step = 10
 /

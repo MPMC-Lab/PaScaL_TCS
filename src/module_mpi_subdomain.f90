@@ -45,8 +45,11 @@ module mpi_subdomain
     double precision, allocatable, dimension(:), public, target :: dmx1_sub, dmx2_sub, dmx3_sub
     !> @}
 
-    integer, allocatable, dimension(:), public              :: iC_BC,iS_BC,jC_BC,jS_BC,kC_BC,kS_BC
-    integer, public :: i_indexS, j_indexS, k_indexS ! Staggered grid
+    integer, allocatable, dimension(:), public              :: iC_BC, iS_BC, jC_BC, jS_BC, kC_BC, kS_BC
+    integer :: i_indexC, i_indexS
+    integer :: j_indexC, j_indexS
+    integer :: k_indexC, k_indexS
+    ! Staggered grid
 
     !> @{ Derived datatype for communication between x-neighbor subdomains
     integer :: ddtype_sendto_E, ddtype_recvfrom_W, ddtype_sendto_W, ddtype_recvfrom_E
@@ -312,9 +315,9 @@ module mpi_subdomain
         allocate(kC_BC(0:n3sub),kS_BC(0:n3sub))
 
         ! All values are initialized with 1, meaning all grids are not empty and effective.
-        i_indexS=1
-        j_indexS=1
-        k_indexS=1
+        i_indexC=1; i_indexS=1
+        j_indexC=1; j_indexS=1
+        k_indexC=1; k_indexS=1
         
         iC_BC(0:n1sub)=1;iS_BC(0:n1sub)=1;
         jC_BC(0:n2sub)=1;jS_BC(0:n2sub)=1;
