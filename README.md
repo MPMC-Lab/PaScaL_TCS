@@ -38,3 +38,6 @@ For more information, please see the reference paper and [Multi-Physics Modeling
 # Information
 - problem: 0. RBC 1. Channel 2. Urban
 - LES: 0. No-option 1. Constant Smagorinsky 2. Constant Vreman
+
+# 추후 보완하여야 할 지점
+1. Core 1일 때 Pascal tdma 그냥 tdma 돌릴수 있게 해야함.
