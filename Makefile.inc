@@ -8,11 +8,11 @@ FC = mpiifort
 #FLAG = -O0 -g -fPIC -check all -warn all -WB
 
 # For moderate debugging
-FLAG = -O1 -fPIC -fp-model=precise -check bounds
+#FLAG = -O1 -fPIC -fp-model=precise -check bounds
 
 # For optimized run 
 #FLAG = -O3 -fPIC -fp-model=precise -xMIC-AVX512
 #FLAG = -O3 -fPIC -fp-model=precise -xCORE-AVX2 -assume byterecl
-#FLAG = -O3 -fPIC -fp-model=precise 
+FLAG = -O3 -fPIC -fp-model=precise 
 
 

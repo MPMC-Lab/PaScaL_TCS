@@ -78,6 +78,7 @@ program main
     if(myrank==0) call system('mkdir -p ./data')
     if(myrank==0) call system('mkdir -p ./data/1_continue')
     if(myrank==0) call system('mkdir -p ./data/2_instanfield')
+    if(myrank==0) call system('mkdir -p ./data/3_statistics')
     call MPI_Barrier(MPI_COMM_WORLD,ierr)
     
     call global_inputpara()
@@ -95,7 +96,7 @@ program main
     call mpi_thermal_boundary()
     
     call mpi_momentum_allocation()
-        !CJY: For Channel flow
+    !CJY: For Channel flow
     if(problem.eq.0) then
         call mpi_momentum_initial()
     else if(problem.eq.1) then
@@ -228,13 +229,13 @@ program main
         call timer_stamp(13, stamp_main)
 
         !  Statistics
-        !   if (TimeStep >= print_start_step) then
-        !       call mpi_statistics_avg_xzt(myrank, U, V, W, P, T, Mu, dt)
-        !       if (mod(TimeStep-print_start_step, print_interval_step)==0) then
-        !           call mpi_statistics_Reynolds_Budget_out(myrank)
-        !           call mpi_statistics_fileout(myrank, Mumean)
-        !       endif
-        !   endif
+        if (TimeStep >= print_start_step) then
+            call mpi_statistics_avg_xzt(myrank, U, V, W, P, T, Mu, dt)
+            if (mod(TimeStep-print_start_step, print_interval_step)==0) then
+                call mpi_statistics_Reynolds_Budget_out(myrank)
+                call mpi_statistics_fileout(myrank, Mumean)
+            endif
+        endif
 
         call mpi_Post_FileOut_InstanField(myrank,TimeStep,time,U,V,W,P,T)
         
@@ -254,7 +255,7 @@ program main
         endif
 
         timer_b=MPI_WTIME()
-        call mpi_Post_MonitorOut(myrank,TimeStep,time,dt,CFL,maxDivU,timer_b-timer_a)
+        call mpi_Post_MonitorOut(myrank,TimeStep,time,dt,CFL,maxDivU,wss,timer_b-timer_a)
         call timer_stamp(17, stamp_main)
         
         call mpi_Post_CFL(U,V,W,CFL,dt)

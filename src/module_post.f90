@@ -241,19 +241,19 @@ module mpi_Post
     !> @param       outmaxDivU      Maximum divergence
     !> @param       outtimer        Wall-clock time of current time step
     !>
-    subroutine mpi_Post_MonitorOut(myrank,outTimeStep,outtime,outdt,outCFL,outmaxDivU,outtimer)
+    subroutine mpi_Post_MonitorOut(myrank,outTimeStep,outtime,outdt,outCFL,outmaxDivU,wss,outtimer)
 
         implicit none
 
         integer :: outTimeStep,myrank
-        double precision :: outtime,outdt,outCFL,outmaxDivU,outtimer
+        double precision :: outtime,outdt,outCFL,outmaxDivU,wss,outtimer
 
         ! Print output paramters every 20 steps
         if(mod(outTimeStep,20)==1) then
             if(myrank==0) write(*,*)
-            if(myrank==0) write(*,'(6A15)') 'Timestep', 'Time', 'dt', 'CFL', 'max_DivU', 'WTime/step'
+            if(myrank==0) write(*,'(7A15)') 'Timestep', 'Time', 'dt', 'CFL', 'max_DivU', 'WSS', 'WTime/step'
         endif
-        if(myrank==0) write(*,'(1I15,5E15.5)') outTimeStep,outtime,outdt,outCFL,outmaxDivU,outtimer
+        if(myrank==0) write(*,'(1I15,6E15.5)') outTimeStep,outtime,outdt,outCFL,outmaxDivU,wss,outtimer
 
     end subroutine mpi_Post_MonitorOut
 

@@ -348,7 +348,7 @@ module mpi_thermal
                     !4-2A:    ! MTn
                     RHS_ijk  = RHS_ijk - ( +eAMI*Tim + eACI*Tijk + eAPI*Tip &
                                            +eAMJ*Tjm + eACJ*Tijk + eAPJ*Tjp &
-                                           +eAMK*Tkm + eACJ*Tijk + eAPK*Tkp )
+                                           +eAMK*Tkm + eACK*Tijk + eAPK*Tkp )
                 
                     !4-3 : BC
                     ! From Convection Terms

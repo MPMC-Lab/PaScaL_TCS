@@ -4,12 +4,13 @@ ContinueFileout     = 1
 dir_cont_filein     = './data/1_continue/MPI_IO/'
 dir_cont_fileout    = './data/1_continue/'
 dir_instantfield    = './data/2_instanfield/'
+dir_statistics      = './data/3_statistics/'
 /
 
 &meshes
-n1m = 32
-n2m = 64
-n3m = 32
+n1m = 192
+n2m = 128
+n3m = 160
 /
 
 &MPI_procs
@@ -52,7 +53,7 @@ Pr      = 1.
 /
 
 &setting_channel
-Re_c    = 3355.0
+Re_c    = 3300.0
 Pr      = 1.
 /
 
@@ -62,7 +63,7 @@ Pr      = 1.
 /
 
 &les
-les_model = 2
+les_model = 0
 /
 
 &sim_parameter
@@ -74,7 +75,7 @@ vper    = 0.7
 &sim_control
 dtStart             = 5.0D-2
 tStart              = 0.d0
-Timestepmax         = 100
-print_start_step    = 10
-print_interval_step = 10
+Timestepmax         = 30000
+print_start_step    = 10000
+print_interval_step = 1000
 /

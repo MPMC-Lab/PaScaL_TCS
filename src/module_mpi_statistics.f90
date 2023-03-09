@@ -902,7 +902,7 @@ contains
         dmx3 => dmx3_sub
         
 		! Reynolds_Stress_Budgets UU
-        do j=1,n2sub
+        do j=1,n2msub
 			RS_P (j,1)   =  -dble(2.0)  *  (UVavg_t(j)/avg_time_length)  *  ( (Umean(j+1)/avg_time_length) - (Umean(j-1)/avg_time_length) ) / (  dx2(j) + dx2(j-1)  )
 			RS (j,1)   =  -dble(2.0)  * Cmu * dudydudy(j)/avg_time_length
 			RS_T (j,1)   =  -( (UUVavg_t(j+1)/avg_time_length) - (UUVavg_t(j-1)/avg_time_length) ) / (  dx2(j) + dx2(j-1)  ) 
@@ -914,7 +914,7 @@ contains
         enddo
 		
 		! Reynolds_Stress_Budgets VV
-        do j=1,n2sub
+        do j=1,n2msub
 			RS_P (j,2)   =  -dble(2.0)  *  (VVavg_t(j)/avg_time_length)  *  ( (Vmean(j+1)/avg_time_length) - (Vmean(j-1)/avg_time_length) ) / (  dx2(j) + dx2(j-1)  )
 			RS (j,2)   =  -dble(2.0)  * Cmu * dvdydvdy(j)/avg_time_length
 			RS_T (j,2)   =  -( (VVVavg_t(j+1)/avg_time_length) - (VVVavg_t(j-1)/avg_time_length) ) / (  dx2(j) + dx2(j-1)  ) 
@@ -926,7 +926,7 @@ contains
         enddo
 		
 		! Reynolds_Stress_Budgets WW
-        do j=1,n2sub
+        do j=1,n2msub
 			RS_P (j,3)   =  -dble(2.0)  *  (VWavg_t(j)/avg_time_length)  *  ( (Wmean(j+1)/avg_time_length) - (Wmean(j-1)/avg_time_length) ) / (  dx2(j) + dx2(j-1)  )
 			RS (j,3)   =  -dble(2.0)  * Cmu * dwdydwdy(j)/avg_time_length
 			RS_T (j,3)   =  -( (WWVavg_t(j+1)/avg_time_length) - (WWVavg_t(j-1)/avg_time_length) ) / (  dx2(j) + dx2(j-1)  ) 
@@ -938,7 +938,7 @@ contains
         enddo
 
 		! Reynolds_Stress_Budgets UV
-        do j=1,n2sub
+        do j=1,n2msub
 			RS_P (j,4)   =  - (UVavg_t(j)/avg_time_length)  *  ( (Vmean(j+1)/avg_time_length) - (Vmean(j-1)/avg_time_length) ) / (  dx2(j) + dx2(j-1)  )  &
 			              & - (VVavg_t(j)/avg_time_length)  *  ( (Umean(j+1)/avg_time_length) - (Umean(j-1)/avg_time_length) ) / (  dx2(j) + dx2(j-1)  )
 						  
@@ -960,11 +960,11 @@ contains
                     write(myrank,*) 'variables="y","RS_All","RS_P","RS","RS_T","RS_Pi","RS_V"'
                     do j=2,n2msub
                         write(myrank,'(7E16.8)') x2_sub(j),            RS_All(j,1)  &
-																	&, RS_P  (j,1)  &
-																	&, RS  (j,1)  &
-																	&, RS_T  (j,1)  &
-																	&, RS_Pi (j,1)  &
-																	&, RS_V  (j,1) 
+                                                                        &, RS_P  (j,1)  &
+                                                                        &, RS  (j,1)  &
+                                                                        &, RS_T  (j,1)  &
+                                                                        &, RS_Pi (j,1)  &
+                                                                        &, RS_V  (j,1) 
                     enddo
                 close(myrank)
                 open(myrank, file=dir_statistics//'052_Reynolds_Budget_VV'//xyzrank//'.plt')

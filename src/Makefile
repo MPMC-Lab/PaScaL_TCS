@@ -22,7 +22,7 @@ PaScaLLIB = -L$(PaScaL_HOME)/lib -lpascal_tdma
 #FFTWINC = -I$(MKL_HOME)/include/fftw
 FFTWINC = -I/scratch/x2434a03/fftw3/fftw3-library/include
 
-FFTWFLAGS 	=  -mkl=sequential
+FFTWFLAGS 	=  -qmkl=sequential
 
 $(OBJDIR)/%.o: %.f90
 	$(FC) $(FLAG) -c $^ -o $@ -module $(OBJDIR) -I$(OBJDIR) $(FFTWINC) $(FFTWLIB) ${PaScaLINC} $(FFTWFLAGS)

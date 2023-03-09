@@ -100,7 +100,7 @@ module global
         namelist /les/                  les_model
         namelist /sim_parameter/        DeltaT, MaxCFL, vper
         namelist /sim_control/          dtStart, tStart, Timestepmax, print_start_step, print_interval_step
-        namelist /sim_continue/         ContinueFilein, ContinueFileout, dir_cont_filein, dir_cont_fileout, dir_instantfield
+        namelist /sim_continue/         ContinueFilein, ContinueFileout, dir_cont_filein, dir_cont_fileout, dir_instantfield, dir_statistics
 
         ! Using file input
         open(unit = 1, file = "PARA_INPUT.dat")
@@ -119,7 +119,6 @@ module global
         read(1, sim_parameter)
         read(1, sim_control)
         close(1)
-
 
         Uup = 0.d0;Ubt = 0.d0
         Vup = 0.d0;Vbt = 0.d0
